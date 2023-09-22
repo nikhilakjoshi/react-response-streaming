@@ -1,16 +1,43 @@
 import Head from "next/head";
 import React from "react";
-import { Merriweather } from "next/font/google";
-import { api } from "~/utils/api";
+import { Merriweather, Literata } from "next/font/google";
+import clsx from "clsx";
 
 const font = Merriweather({
   weight: ["400", "700"],
   subsets: ["latin-ext"],
 });
 
+const storyFont = Literata({
+  weight: ["400", "700", "300", "200"],
+  subsets: ["latin-ext"],
+});
+
 export default function Home() {
-  const hello = api.example.hello.useQuery({ text: "from tRPC" });
   const [topic, setTopic] = React.useState("dog");
+  const [story, setStory] = React.useState("");
+
+  const handleGeneration = async () => {
+    setStory("");
+    const response = await fetch("/api/ai", {
+      method: "POST",
+      body: JSON.stringify({ topic }),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+    });
+    const reader = response.body
+      ?.pipeThrough(new TextDecoderStream())
+      .getReader();
+    while (true && reader) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      setStory((s) => s + value);
+    }
+  };
 
   return (
     <>
@@ -21,13 +48,13 @@ export default function Home() {
       </Head>
       <div className={font.className}>
         <div className="nav-root bg-sky-800 py-4">
-          <nav className="container mx-auto flex max-w-screen-2xl items-center">
+          <nav className="container mx-auto flex max-w-screen-2xl items-center px-4">
             <span className="text-xl text-white">
-              React - Response Streaming
+              React - Response Streaming with OpenAI
             </span>
           </nav>
         </div>
-        <main className="container mx-auto max-w-screen-2xl py-10">
+        <main className="container mx-auto max-w-screen-2xl px-4 py-10">
           <h1 className="mb-4 text-2xl font-bold">
             Generate a story about something
           </h1>
@@ -40,6 +67,22 @@ export default function Home() {
               className="ml-1 inline-block w-28 rounded border p-2"
             />
           </p>
+          <div className="">
+            <button
+              className="mt-4 rounded bg-sky-950 px-3 py-2 text-white"
+              onClick={handleGeneration}
+            >
+              Generate
+            </button>
+          </div>
+          <div
+            className={clsx(
+              "response story-response mt-4 border-t pt-2",
+              storyFont.className,
+            )}
+          >
+            <span className="text-lg">{story}</span>
+          </div>
         </main>
       </div>
     </>
